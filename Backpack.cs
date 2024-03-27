@@ -2,10 +2,8 @@
 
 public class Backpack
 {
-    public uint[] Volumes = null!;
-    public byte[] Weights = null!;
+    public Item[] Items = Array.Empty<Item>();
+    public byte Count => Convert.ToByte(Items.Length);
 
-    public byte Count => Convert.ToByte(Volumes.Length);
-
-    public ulong Size;
+    public float Limit;
 }

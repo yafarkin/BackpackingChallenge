@@ -4,7 +4,7 @@ namespace BackpackingChallenge;
 
 public class Calculator
 {
-    private readonly ConcurrentBag<Tuple<uint[], float>> _results = new();
+    private readonly ConcurrentBag<Tuple<float, Item?[]>> _results = new();
     private readonly Backpack _backpack;
     private readonly uint _batchSize;
     private readonly uint _highIndex;
@@ -18,7 +18,7 @@ public class Calculator
         _highIndex = (uint)1 << _count;
     }
 
-    public async Task<uint[]> CalcParallelAsync(int taskCount = 0)
+    public async Task<Item?[]> CalcParallelAsync(int taskCount = 0)
     {
         if (0 == taskCount)
         {
@@ -43,15 +43,15 @@ public class Calculator
 
         await Task.WhenAll(tasks);
 
-        var variant = Array.Empty<uint>();
+        var variant = Array.Empty<Item?>();
         var bestFit = float.MinValue;
 
         foreach (var v in _results)
         {
-            if (v.Item2 > bestFit)
+            if (v.Item1 > bestFit)
             {
-                variant = v.Item1;
-                bestFit = v.Item2;
+                variant = v.Item2;
+                bestFit = v.Item1;
             }
         }
 
@@ -72,21 +72,19 @@ public class Calculator
             }
         }
 
-        ulong s = 0;
-        var result = new uint[_count];
+        var result = new Item?[_count];
         for (var i = 0; i < _count; i++)
         {
             var x = variant & (1 << i);
-            result[i] = x != 0 ? _backpack.Volumes[i] : 0;
-            s += result[i];
+            result[i] = x != 0 ? _backpack.Items[i] : null;
         }
 
-        _results.Add(new Tuple<uint[], float>(result, bestFit));
+        _results.Add(new Tuple<float, Item?[]>(bestFit, result));
         return Task.CompletedTask;
 
         float CalcVariant(uint v)
         {
-            var volume = 0ul;
+            var volume = 0f;
             var fit = 0f;
 
             for (var i = 0; i < _count; i++)
@@ -98,9 +96,9 @@ public class Calculator
                     continue;
                 }
 
-                var itemVolume = _backpack.Volumes[i];
-                var newVolume = volume + itemVolume;
-                if (newVolume > _backpack.Size)
+                var item = _backpack.Items[i];
+                var newVolume = volume + item.Volume;
+                if (newVolume > _backpack.Limit)
                 {
                     fit = float.MinValue;
                     break;
@@ -108,8 +106,8 @@ public class Calculator
 
                 volume = newVolume;
 
-                var weight = _backpack.Weights[i];
-                fit += itemVolume * weight;
+                var weight = item.Weight;
+                fit += item.Item2 * weight;
             }
 
             return fit;
