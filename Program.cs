@@ -1,44 +1,59 @@
-﻿using System.Diagnostics;
-using BackpackingChallenge;
+﻿using BackpackingChallenge;
+using System.Diagnostics;
 
-var backpack = new Backpack
+var items = new List<Item>
 {
-    Limit = 2_000,
-    Items = new Item[]
-    {
-        new("Item 1", 1000, 0.33f),
-        new("Item 2", 1000, 0.5f),
-        new("Item 3", 1000, 1.25f)
-    }
+    new("Item 1", 5000f, 1f, 30),
+    new("Item 2", 80000f, 0.5f, 4),
+    new("Item 3", 500f, 0.5f, 2)
 };
 
-var calc = new Calculator(backpack);
-var sw = Stopwatch.StartNew();
-var solution = await calc.CalcParallelAsync();
-sw.Stop();
-var totalVolume = 0f;
-foreach (var item in solution)
-{
-    if (item == null)
-    {
-        continue;
-    }
+var backpack = new Backpack(100_000, items);
 
-    Console.WriteLine($"{item.Name}, {item.Volume}");
-    totalVolume += item.Volume;
+ICalculator calc;
+
+calc = new HeavyCalculator(backpack);
+//calc = new GreedyCalculator(backpack);
+//calc = new Calculator(backpack);
+
+var sw = Stopwatch.StartNew();
+var solution = (await calc.CalcAsync()).Where(x => x != null).GroupBy(x => x.Name).ToList();
+sw.Stop();
+
+Console.WriteLine();
+
+var totalVolume = 0f;
+var usedItems = new Dictionary<string, int>();
+foreach (var g in solution)
+{
+    var item = g.First()!;
+    var count = g.Count();
+    var totalItemVolume = item.Volume* count;
+    usedItems.Add(item.Name, count);
+    Console.WriteLine($"{item.Name}, {item.Volume}, {count}, {totalItemVolume}");
+    totalVolume += totalItemVolume;
 }
 
 Console.WriteLine($"total volume: {totalVolume}");
 
 Console.WriteLine();
 Console.WriteLine("not in list:");
-foreach (var item in backpack.Items)
+totalVolume = 0;
+foreach (var item in items)
 {
-    var inList = solution.Where(_ => _ != null).FirstOrDefault(_ => _.Name == item.Name);
-    if (null == inList)
+    var unusedCount = item.Count;
+    if (usedItems.TryGetValue(item.Name, out var usedCount))
     {
-        Console.WriteLine($"{item.Name}, {item.Volume}");
+        unusedCount -= usedCount;
+    }
+
+    if (unusedCount > 0)
+    {
+        Console.WriteLine($"{item.Name}, {item.Volume}, {unusedCount}");
+        totalVolume += item.Volume * unusedCount;
     }
 }
+Console.WriteLine($"total unused volume: {totalVolume}");
 
-Console.WriteLine($"{sw.ElapsedMilliseconds} ms.");
+Console.WriteLine();
+Console.WriteLine($"ETA: {sw.Elapsed:d\\:h\\:mm\\:ss} s.");
